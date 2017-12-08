@@ -1,0 +1,238 @@
+---
+title: "Smart Citizens"
+author: "Mehdi Khan"
+date: "December 2, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+## Load libraries:
+```{r}
+suppressWarnings(suppressMessages(library(twitteR)))
+suppressWarnings(suppressMessages(library(RCurl)))
+suppressWarnings(suppressMessages(library(RJSONIO)))
+suppressWarnings(suppressMessages(library(stringr)))
+suppressWarnings(suppressMessages(library(rtweet)))
+suppressWarnings(suppressMessages(library(dismo)))
+suppressWarnings(suppressMessages(library(maps)))
+suppressWarnings(suppressMessages(library(ggplot2)))
+suppressWarnings(suppressMessages(library(XML)))
+suppressWarnings(suppressMessages(library(dplyr)))
+suppressWarnings(suppressMessages(library(aws.s3)))
+suppressWarnings(suppressMessages(library(aws.signature)))
+suppressWarnings(suppressMessages(library(tm)))
+```
+
+
+
+```{r}
+# Declare Twitter API Credentials
+api_key <- "A9eKfCoyxZ1lLmffq3zXhCmJ4" # From dev.twitter.com
+api_secret <- "ZpWhiYaPqfa2SGqzM2iZ4rJBQeWMQ5SHxron8rDA279vwg2smZ" # From dev.twitter.com
+token <- "933420523136135169-Qc5IdYFMGMAhLVROTzvceNHsHMkbllP" # From dev.twitter.com
+token_secret <- "JTSyeMSZUmhMBc1YwXwfuf4VVNCxBN0Nw3uMdMNh3aoY7" # From dev.twitter.com
+
+# Create Twitter Connection
+setup_twitter_oauth(api_key, api_secret, token, token_secret)
+
+HowardCounty_accounts <- c('HoCoGov','HoCoGovExec','HCPDNews','HCDFRS','HC_JonWeinstein','HoCoBOEMaryland','JenTerrasa')
+AnneArundelCounty_accounts <- c('AACountyGovt','AACoFD', 'AAEDC','AACAnimalCtrl','ClerkAA','AAHealth','AACoDPW','AACO_OEM','AACOPD','RecParks')
+BaltimoreCounty_accounts <- c('BaltCoGov', 'BaCoBiz4All', 'BACOemergency', 'BACOPoliceFire','tourismBACO')
+
+
+##BCTYgovetweets <- searchTwitteR("@MayorPugh50 OR BmoreCityDOT OR baltimore311 OR BaltimoreOEM OR BaltimoreDPW OR BMore_Healthy OR OIG_Baltimore OR 'Baltimore city' OR 'city of Baltimore'",  n=2000, lang="en", since="2017-01-20")
+##BCTYgov_tweetDF <- twListToDF(BCTYgovetweets)
+
+#oauth_content <- readRDS('.httr-oauth')
+#oauth_content$xxxx0x000xxxx00000x0xx0x000000xx$credentials
+
+```
+Using the new library 'rtweet' function bounding box of each county was collected:
+```{r}
+HCcoord <- lookup_coords("Howard County, MD", "country:US")
+AACcoord <- lookup_coords("Anne Arundel County, MD", "country:US")
+BCcoord <-  lookup_coords("Baltimore County, MD", "country:US")
+
+ 
+```
+
+
+
+```{r}
+hcUsers <- lookupUsers(HowardCounty_accounts)
+accUsers <- lookupUsers(AnneArundelCounty_accounts)
+bcUsers <- lookupUsers(BaltimoreCounty_accounts)
+
+HCfollowers <- lapply(hcUsers,function(x) { usr <- x; followersCount(usr) })
+AACfollowers <- lapply(accUsers,function(x) { usr <- x; followersCount(usr) })
+BCfollowers <- lapply(bcUsers,function(x) { usr <- x; followersCount(usr) })
+
+#plot(as.matrix(HCfllowers))
+
+
+```
+
+
+Two functions were created to collect citizens' tweets in a local government. The first function "getGov_tweets" take government accounts (government users) as its parameter and collect the  recents   tweets sent by each of those government accounts. It returns all those tweets in a data frame.  
+
+
+the second function "FindHashtags" take the output of the "getGov_tweets" function as its parameter  and check all the hashtags used by government accounts. It returns the most common hashtags used by the government.
+
+```{r}
+
+getGov_tweets <- function (x) {
+  gdf <- c()
+  for(usr in x){
+    gvt <- userTimeline(x[1], n=100)
+    gvdf <- twListToDF(gvt)
+    gdf <- rbind(gdf,gvdf)
+
+     }
+  return(gdf)
+  
+}
+
+
+FindHashtags <- function(x) {
+  all_hashtags <- str_extract_all(x$text, "#\\w+")
+  DF <- as.data.frame(table(tolower(unlist(all_hashtags))))
+  mostUsedHashTags <- as.character(DF[order(-DF$Freq)[1:3],1])
+  mostUsedHashTags <- mostUsedHashTags[!is.na(mostUsedHashTags)] # remove NA if less than 10
+  mostUsed_HashTags <- paste(mostUsedHashTags, sep="", collapse=" OR ") 
+  
+  return(mostUsed_HashTags)
+}
+
+```
+
+
+#Tweets sent by Howard County, MD citizens:
+search_tweets function of rtweet library was used to collect the citizen tweets. In order to select  the tweets that were possibly generated as responds/reactions to government tweets,  the most recent common hashtags used by the Howard County government and to control the citizen locations, the bounding box (coordinates of opposite corner points  of the rectangle that contains the county polygon) of the County were used as the query parameter. user_data function returned the users information of all the tweets. The citizens tweets and government tweets were seperated by comparing the users_id of the tweets.
+```{r}
+HCgov_tweetDF <- getGov_tweets(hcUsers)
+
+HC_retweet_count <- sum(HCgov_tweetDF$retweetCount)
+HC_tweets_retwweted <- nrow(filter(HCgov_tweetDF,!HCgov_tweetDF$retweetCount==0))
+
+HC_favorite_count <- sum(HCgov_tweetDF$favoriteCount)
+HC_tweets_favorited <-nrow(filter(HCgov_tweetDF,!HCgov_tweetDF$favoriteCount==0))
+
+##PLOT
+
+hocogov_hashtags = FindHashtags(HCgov_tweetDF)
+print(hocogov_hashtags)
+
+twitter_token <- create_token(
+  app = "Smart Citizens",
+  consumer_key = "A9eKfCoyxZ1lLmffq3zXhCmJ4",
+  consumer_secret = "ZpWhiYaPqfa2SGqzM2iZ4rJBQeWMQ5SHxron8rDA279vwg2smZ")
+
+# HowardCounty_genTweets <- search_tweets( hocogov_hashtags,geocode =HCcoord, n=100, token=twitter_token, type = "mixed" )
+
+HowardCounty_genTweets <- search_tweets( hocogov_hashtags, n=100, token=twitter_token, type = "mixed" )
+
+HCgovUsersid <- sapply(hcUsers,function(x) x$id )
+HCcitizens <- users_data(HowardCounty_genTweets)
+HCcitizens <- HCcitizens[!HCcitizens$location=="",]
+HCcitizens <- HCcitizens[!HCcitizens$user_id %in% HCgovUsersid,]
+
+HowardCounty_citizensTweets <- HowardCounty_genTweets[HowardCounty_genTweets$user_id %in% HCcitizens$user_id,]
+HowardCounty_govTweets <- HowardCounty_genTweets[HowardCounty_genTweets$user_id %in% HCgovUsersid,]
+```
+
+# Connecting systems in real time:
+
+The intention of the project was also to be able to share data with other systems, particularly with GIS so that various spatial analysis could be done with the tweet data. Three seperate cloud based systems were explored. Tweet data  with location information were direcly stored to GitHub and AWS (Amazon Web Service), which were consumed by ArcGIS online (an ESRI based cloud GIS) in order to analyze and visualuize data spatially in conjunction with other spatial data. Thus, all the changes could be updated and reflected across the systems real or near real time.
+
+While it was possible to geocode data in ESRI platform, the geocode capability of 'dismo' library was experimented with 'geocode' function, which uses Google API. Note that the geocode operation here was limited due to the restrictions on free version of Google API. The mapping capabilities in R (ggplot2) was also experimented, which was found to be very limited (see the commented out code snippet that was found in 'https://gist.github.com/dsparks/4329876' )
+
+```{r}
+#HowardCounty_citizensTweets1 <- filter(HowardCounty_genTweets, HowardCounty_genTweets$user_id %in% HCcitizens$user_id)
+
+
+locations <- geocode(HCcitizens$location) 
+locations <- na.omit(locations)
+write.csv(locations, file="locate2.csv")
+
+##MAPPING in R 
+# with(locations, plot(longitude, latitude))
+# worldMap <- map_data("county","maryland", wrap = TRUE) 
+
+# zp1 <- ggplot(worldMap)
+# zp1 <- zp1 + geom_path(aes(x = long, y = lat, group = group),  # Draw map
+#                      colour = gray(2/3), lwd = 1/3)
+# zp1 <- zp1 + geom_point(data = locations,  # Add points indicating users
+#                         aes(x = locations$longitude, y = locations$latitude),
+#                         colour = "RED", alpha = 1/2, size = 1)
+# zp1 <- zp1 + coord_equal()  # Better projections are left for a future post
+# zp1 <- zp1 + theme_minimal()  # Drop background annotations
+# print(zp1)
+
+
+```
+
+
+Exporting data into AWS (using 'aws.s3'library), the file can be accessed by the following link: https://s3.amazonaws.com/khdata/locate.csv
+
+```{r}
+Sys.setenv("AWS_ACCESS_KEY_ID" = "AKIAI4UUKXKN3CJUN3HA",
+           "AWS_SECRET_ACCESS_KEY" = "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")
+b <- get_bucket("khdata")
+s3write_using(locations,FUN = write.csv, object = "locate.csv", bucket = b )
+```
+
+## Text mining
+Texts were analyzed to see if similar terms are common in both government and citizens tweets. in other word texts were explored to examine if the concerns and interests of citizens match with what government wanted to talk about, or how much of the concerns of the both groups overlapped.
+
+A function was created  clean a Corpus that would be created with tweet texts:
+
+```{r}
+    cleanCorp <- function(corp) {
+    clcorp <- tm_map(corp, str_replace_all, "<[^>]+>", "")
+    clcorp <- tm_map(clcorp, content_transformer(removePunctuation))
+    clcorp <- tm_map(clcorp, removeWords, stopwords("english"))
+    clcorp <- tm_map(clcorp, content_transformer(stemDocument))
+    clcorp <- tm_map(clcorp, removeNumbers)
+    clcorp <- tm_map(clcorp, tolower)
+    
+    
+    return(clcorp)
+}
+
+txt <- HowardCounty_govTweets$text[1]
+txt1 <- gsub("@\\w+", "", txt) # remove Retweet
+txt2 <- str_replace_all(txt,"@\\w+","")
+
+txt
+txt1
+txt2
+t_txt <- HowardCounty_govTweets[1,5]
+
+
+
+tweet_corpus <- Corpus(VectorSource(t_txt$text))
+tweet_corpus <- tm_map(tweet_corpus, str_replace_all, "@\\w+", "")
+c1 <- tweet_corpus[1]$content
+tweet_corpus <- tm_map(tweet_corpus, str_replace_all, "#\\w+", "")
+c5 <- tweet_corpus[1]$content
+tweet_corpus <- tm_map(tweet_corpus, content_transformer(removePunctuation))
+c2 <- tweet_corpus[1]$content
+tweet_corpus <- tm_map(tweet_corpus, removeWords, stopwords("english"))
+c3 <- tweet_corpus[1]$content
+tweet_corpus  <- tm_map(tweet_corpus, removeNumbers)
+c4 <- tweet_corpus[1]$content
+
+c1
+c5
+c2
+c3
+c4
+
+```
+
+
+
