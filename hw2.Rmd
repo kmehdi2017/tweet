@@ -1,0 +1,360 @@
+---
+title: "hw2"
+author: "Mehdi Khan"
+date: "October 10, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+1. 
+```{r}
+DATA <- read.csv("classification-output-data.csv", sep = ',',stringsAsFactors = FALSE)
+colnames(DATA)
+```
+
+
+2. 
+
+```{r}
+#raw confusion matrix using table() function
+
+cmData <- select(DATA,predicted_class=scored.class,actual_class =class)
+
+rawcm <- with(cmData, table(predicted_class,actual_class))
+rawcm
+
+diag(rawcm)[[2]]
+
+
+```
+
+There are two classes here, 0 and 1 (or False and True). In the above confusion matrix the rows represent the predicted classes and the columns show their actual classes.   A total of 181 predictions (sum(rawcm)=181) were made or in other words 181 cases were being examined to predict the occurance of a disease. Assuming 0 indicates a negative result (or false) and 1 indicates a positive result (or true case), the classifier predicted 27 true cases correctly out of 32 cases that it recognized as true (i.e. 27 true positive and 5 false positive) and out of 149 predicted negative cases 119 was true negative and 30 was false negative. 
+
+So in summry the classifer predicted:
+
+1. 32 true cases but in reality  27 of them were true i.e. in 27 cases the disease was present as oppose to the predicted 32
+2. 149 false cases, but in reality 119 of them were false i.e. 119 cases did not have the disease as oppose to the predicted 149
+
+
+3. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified, and returns the accuracy of the predictions.
+```{r}
+# the following function takes a dataframe and the field names (as string) for the actual and predicted fields (columns) of the dataframe and return accuracy
+checkAccuracy <- function (ds, actual, predicted){
+  
+  #check the type, length and validity of the dataset 
+  if (!is.data.frame(ds)) stop("The function only accept a data frame, please provide a valid data frame") 
+  else if (nrow(ds)==0 )  stop("no records found in the data set")
+  else if (all(c(actual, predicted ) %in% colnames(ds))==FALSE) stop("one or both of the field names are not valid")
+  
+  else
+    conmatData <- select(ds,p=predicted,a=actual)
+    conmat <- with(conmatData, table(p ,a ))
+  
+  # using the formual accuracy = (TP + TN)/(TP + FP + TN + FN) or using "diag"" function in R, accuracy = sum(diag(confusion matrix))/sum(confusion matrix)
+  
+  accuracy <- sum(diag(conmat))/sum(conmat)
+  
+  return(accuracy)
+  
+}
+
+a <- checkAccuracy(DATA,  "scored.class" , "class")
+a
+
+```
+
+4. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified, and returns the classification error rate of the predictions.
+
+```{r}
+
+# the following function takes a dataframe and the field names (as string) for the actual and predicted fields (columns) of the dataframe and return error rate
+
+checkError <- function (ds, actual, predicted) {
+  
+  #check the type, length and validity of the dataset 
+  if (!is.data.frame(ds)) stop("The function only accept a data frame, please provide a valid data frame") 
+  else if (nrow(ds)==0 )  stop("no records found in the data set")
+  else if (all(c(actual, predicted ) %in% colnames(ds))==FALSE) stop("one or both of the field names are not valid")
+  
+  else 
+    conmatData <- select(ds,p=predicted,a=actual)
+    conmat <- with(conmatData, table(p ,a ))
+ 
+  
+  # Error rate = (FP + FN)/(TP + FP + TN + FN) 
+  # FP + FN = 1 - (TP + TN) or sum(confusion matrix)  - sum(diag(confusion matrix))
+  # TP + FP + TN + FN = sum(confusion matrix) 
+   
+    
+  errorrate <- (sum(conmat)-sum(diag(conmat)))/sum(conmat)
+  
+  return(errorrate)
+  
+}
+
+err <- checkError(DATA,  "scored.class" , "class")
+err
+
+```
+
+5. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified, and returns the precision of the predictions.
+```{r}
+# the following function takes a dataframe and the field names (as string) for the actual and predicted fields (columns) of the dataframe and return precision
+
+checkPrecision <- function (ds, actual, predicted) {
+  
+  #check the type, length and validity of the dataset 
+  if (!is.data.frame(ds)) stop("The function only accept a data frame, please provide a valid data frame") 
+  else if (nrow(ds)==0 )  stop("no records found in the data set")
+  else if (all(c(actual, predicted ) %in% colnames(ds))==FALSE) stop("one or both of the field names are not valid")
+  
+  else 
+    conmatData <- select(ds,p=predicted,a=actual)
+    conmat <- with(conmatData, table(p ,a ))
+ 
+  
+  # Precision = TP/(TP + FP) 
+  TP <- conmat[[4]]
+  FP <- conmat[[3]]
+  Precision <- TP/(TP + FP) 
+    
+  
+  
+  return(Precision)
+  
+}
+
+precision <- checkPrecision (DATA,  "scored.class" , "class")
+precision
+
+
+
+```
+
+6. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified, and returns the sensitivity of the predictions. 
+
+```{r}
+# the following function takes a dataframe and the field names (as string) for the actual and predicted fields (columns) of the dataframe and return the sensitivity of the predictions
+
+checkSensitivity <- function (ds, actual, predicted) {
+  
+  #check the type, length and validity of the dataset 
+  if (!is.data.frame(ds)) stop("The function only accept a data frame, please provide a valid data frame") 
+  else if (nrow(ds)==0 )  stop("no records found in the data set")
+  else if (all(c(actual, predicted ) %in% colnames(ds))==FALSE) stop("one or both of the field names are not valid")
+  
+  else 
+    conmatData <- select(ds,p=predicted,a=actual)
+    conmat <- with(conmatData, table(p ,a ))
+ 
+  
+  # Sensitivity = TP/(TP + FN) 
+  TP <- conmat[[4]]
+  FN <- conmat[[2]]
+  Sensitivity <- TP/(TP + FN) 
+    
+  
+  
+  return(Sensitivity)
+  
+}
+
+sensitivity <- checkSensitivity (DATA,  "scored.class" , "class")
+sensitivity
+
+```
+
+7. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified, and returns the specificity of the predictions
+```{r}
+
+# the following function takes a dataframe and the field names (as string) for the actual and predicted fields (columns) of the dataframe and return the sensitivity of the predictions
+
+checkSpecificity <- function (ds, actual, predicted) {
+  
+  #check the type, length and validity of the dataset 
+  if (!is.data.frame(ds)) stop("The function only accept a data frame, please provide a valid data frame") 
+  else if (nrow(ds)==0 )  stop("no records found in the data set")
+  else if (all(c(actual, predicted ) %in% colnames(ds))==FALSE) stop("one or both of the field names are not valid")
+  
+  else 
+    conmatData <- select(ds,p=predicted,a=actual)
+    conmat <- with(conmatData, table(p ,a ))
+ 
+  
+  TP <- conmat[[4]]
+  FN <- conmat[[2]]
+  Sensivity <- TP/(TP + FN) 
+    
+  
+  
+  return(specificity)
+  
+}
+
+specificity <- checkSpecificity (DATA,  "scored.class" , "class")
+specificity
+
+```
+
+
+8.Write a function that takes the data set as a dataframe, with actual and predicted classifications identified, and returns the F1 score of the predictions
+
+```{r}
+# the following function takes a dataframe and the field names (as string) for the actual and predicted fields (columns) of the dataframe and return the sensitivity of the predictions
+
+checkF1 <- function (ds, actual, predicted) {
+  
+  #check the type, length and validity of the dataset 
+  if (!is.data.frame(ds)) stop("The function only accept a data frame, please provide a valid data frame") 
+  else if (nrow(ds)==0 )  stop("no records found in the data set")
+  else if (all(c(actual, predicted ) %in% colnames(ds))==FALSE) stop("one or both of the field names are not valid")
+  
+  else 
+    conmatData <- select(ds,p=predicted,a=actual)
+    conmat <- with(conmatData, table(p ,a ))
+ 
+  
+  TP <- conmat[[4]]
+  FN <- conmat[[2]]
+  sensivity <- TP/(TP + FN) 
+  
+  TP <- conmat[[4]]
+  FP <- conmat[[3]]
+  precision <- TP/(TP + FP) 
+  
+  # F1 Score = 2 x (Precision x Sensivity)/(Precision + Sensivity)
+  
+  F1  <- 2 * (precision * sensivity)/(precision + sensivity)
+  
+  return(F1)
+  
+}
+
+F1 <- checkF1 (DATA,  "scored.class" , "class")
+F1
+
+```
+
+https://blog.exsilio.com/all/accuracy-precision-recall-f1-score-interpretation-of-performance-measures/
+
+https://towardsdatascience.com/beyond-accuracy-precision-and-recall-3da06bea9f6c
+
+https://towardsdatascience.com/a-brief-journey-on-precision-and-recall-a2651ba99ac6
+
+https://stackoverflow.com/questions/41754220/plot-a-roc-curve-in-r-without-using-any-packages
+
+9. Before we move on, let's consider a question that was asked: What are the bounds on the F1 score? Show that the F1 score will always be between 0 and 1.
+
+F1 score is the harmonic mean of precision and recall (or sensitivity). Before discussing the range of F1 score, let the ranges of precision and sensitivity be examined. 
+
+Precision is the ratio of correctly predicted positive observations to the total predicted positive observations and sensitivity is the is the fraction of relevant information that are retrieved, 
+so Precision p = True positive / Number of predicted positive = TP / (TP +FP)
+Sensitivity s = True positive / Number of actual positive = TP / (TP + FN)
+
+In case of maximum precison the FP = 0, so the maximum value of p = 1
+In case of maximum sensitivity the FN = 0, so the maximum value of s = 1
+Both for minimum precision and minimum  sensitivity TP = 0, so the minimum values for both  will be zero, i.e. p = 0 and s =0
+
+In a perfect world if a classifier is 100% accurate then there will be no false positive and false negative (i.e. ), so both precision and sensitivity will have their maximum value of 1 (p = s= 1). And in case of other extreme when the classifier is 100% in accurate, both precision and recall will have their minimum value of 0 (i.e. p = s = 0)
+
+so F1 with p ans s with their maximum values = 2 x (1 x 1)/(1+1) = 1
+and F1 with p or s with their minimum values = 2 x (0 x 0)/(0+0) = 0, or 2 x (0 x 1)/(0+1) = 0, or 2 x (1 x 0)/(1+0) = 0
+
+SO If precision = 0 or recall = 0 or both = 0, then F1-Score = 0
+If precision = 1 and recall = 1, then F1-Score = 1
+The remaining values lies between 0 and 1
+
+This can also be proved in the following way : 
+
+if 0 < p < 1 and 0 < s < 1, 
+                          then ps < p 
+                          and ps <  s
+                          so, 2ps < p + s
+                          we know F1 = 2ps/p+s , since 2ps < p+s the value will be always less than zero when p >0 and s >0
+                          and the value will be 0 if either p = 0 or s = 0.
+                          
+                          Therefore, the value of F1 will always be between 0 and 1
+                          
+                          
+                          
+                          
+10. Write a function that generates an ROC curve from a data set with a true classification column (class in our example) and a probability column (scored.probability in our example). Your function should return a list that includes the plot of the ROC curve and a vector that contains the calculated area under the curve (AUC). Note that I recommend using a sequence of thresholds ranging from 0 to 1 at 0.01 intervals
+```{r}
+rawcm[[3]]
+```
+
+
+```{r}
+createROC <- function (ds, actual, probability){
+  
+
+Sequence <- seq(0,1,.01)
+false_positive_rate <- c()
+true_positive_rate <- c()
+
+
+
+for ( i in 1:length(Sequence)){
+  ds$predicted <- 0
+  ds$predicted[which(ds[probability] >= Sequence[i])]<-1
+  if (all(ds$predicted==1)){
+    
+    FP <- length(ds[ds[actual]==0,actual]) #length(with(ds,actual[actual==0]))
+    TP <- length(ds[ds[actual]==1,actual]) #length(with(ds,actual[actual==1]))
+    FN <- 0
+    TN <- 0
+  }
+  else if (all(ds$predicted== 0)) {
+    TP <- 0
+    FP <- 0
+    FN <- length(ds[ds[actual]==1,actual]) #length(with(ds,actual[actual==1]))
+    TN <- length(ds[ds[actual]==0,actual]) # length(with(ds,actual[actual==0]))
+  }
+  else {
+    cm <- with(ds, table(predicted,actual))
+    TP <- cm[[4]]
+    TN <- cm[[1]]
+    FP <- cm[[2]]
+    FN <- cm[[3]]
+    
+  }
+  fpr <- FP/(FP+TN)
+  Sensitivity <- TP/(TP+FN)
+  false_positive_rate[i] <- fpr
+  true_positive_rate[i] <- Sensitivity
+}
+
+false_positive_rate <- round(false_positive_rate,3)
+true_positive_rate <- round(true_positive_rate,3)
+false_positive_rate
+true_positive_rate
+df <- data.frame(false_positive_rate,true_positive_rate)
+
+ggplot(data = df, aes(false_positive_rate,true_positive_rate))+geom_line()+geom_point()
+}
+ 
+
+createROC(DATA,"class","scored.probability")
+
+test <-  function (ds, actual){
+
+  length(ds[ds[actual]==0,actual])
+ 
+}
+test(DATA,'class')
+
+     
+    which(DATA["scored.probability"]<0.5)
+```
+
+
+
+
